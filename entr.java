@@ -10,11 +10,11 @@ public class entr {
         try {
 
             Connection conn = DriverManager.getConnection(url, user, password);
-            System.out.println("✅ Connected to MySQL successfully!");
+            System.out.println("Connected to MySQL successfully!");
             
             conn.close();
         } catch (SQLException e) {
-            System.out.println("❌ Connection failed: " + e.getMessage());
+            System.out.println("Connection failed: " + e.getMessage());
         }
     }
 }
