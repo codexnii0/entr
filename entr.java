@@ -16,7 +16,7 @@ public class entr {
     private static void createLoginGUI() {
         JFrame frame = new JFrame("ENTR - Login");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(400, 300);
+        frame.setSize(1000, 750);
         frame.setLocationRelativeTo(null); // Center the window
 
         JPanel panel = new JPanel();
@@ -71,7 +71,7 @@ public class entr {
     private static void createMainGUI() {
         JFrame frame = new JFrame("ENTR - Event Tracker");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1000, 750);
+        frame.setSize(1000,750);
         frame.setLocationRelativeTo(null); // Center the window
 
         JPanel panel = new JPanel();
