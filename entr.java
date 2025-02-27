@@ -45,8 +45,9 @@ public class entr {
                 frame.dispose(); // Close login window
                 createMainGUI(); // Open main event tracker GUI
             } else {
-                statusLabel.setText("Login failed. Check credentials.");
+                JOptionPane.showMessageDialog(frame, "Login failed. Check credentials.", "Error", JOptionPane.ERROR_MESSAGE);
             }
+            
         });
 
         registerButton.addActionListener(e -> {
@@ -57,6 +58,13 @@ public class entr {
                 JOptionPane.showMessageDialog(frame, "Username and password cannot be empty!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+
+            if (loginUser(username, password)) {
+                currentUser = username; // Store logged-in user
+                JOptionPane.showMessageDialog(frame, "Login successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                frame.dispose();
+                createMainGUI();
+            }            
 
             if (registerUser(username, password)) {
                 JOptionPane.showMessageDialog(frame, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
@@ -71,11 +79,12 @@ public class entr {
         panel.add(passField);
         panel.add(loginButton);
         panel.add(registerButton);
-        panel.add(statusLabel);
 
         frame.add(panel);
         frame.setVisible(true);
     }
+
+    private static String currentUser = null;
 
     private static void createMainGUI() {
         JFrame frame = new JFrame("ENTR - Event Tracker");
@@ -87,37 +96,118 @@ public class entr {
         panel.setLayout(new GridLayout(4, 1)); // Increased rows to accommodate the new button
     
         JLabel label = new JLabel("Welcome to ENTR", SwingConstants.CENTER);
-        JButton connectButton = new JButton("Connect to Database");
         JButton createEventButton = new JButton("Create Event"); // New button for event creation
-        JLabel statusLabel = new JLabel("Status: Not Connected", SwingConstants.CENTER);
+        JButton accountSettingsButton = new JButton("Account Settings");
+        JButton logoutButton = new JButton("Logout");
     
-        connectButton.addActionListener(e -> {
-            if (connectToDatabase()) {
-                statusLabel.setText("Status: Connected to MySQL");
-            } else {
-                statusLabel.setText("Status: Connection Failed");
-            }
-        });
     
         createEventButton.addActionListener(e -> createEventGUI()); // Calls the method to open the event creation window
+
+        accountSettingsButton.addActionListener(e -> openAccountSettingsGUI());
+        logoutButton.addActionListener(e -> logout()); 
     
         panel.add(label);
-        panel.add(connectButton);
         panel.add(createEventButton); // Adding the new button to the panel
-        panel.add(statusLabel);
+        panel.add(accountSettingsButton);
+        panel.add(accountSettingsButton);
+        panel.add(logoutButton);
     
         frame.add(panel);
         frame.setVisible(true);
-    }    
+    } 
+    
+    private static void openAccountSettingsGUI() {
+        JFrame frame = new JFrame("Account Settings");
+        frame.setSize(400, 300);
+        frame.setLocationRelativeTo(null);
+    
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(4, 2));
+    
+        JLabel userLabel = new JLabel("New Username:");
+        JTextField userField = new JTextField();
+        JLabel passLabel = new JLabel("New Password:");
+        JPasswordField passField = new JPasswordField();
+        JButton updateButton = new JButton("Update");
+        JButton deleteButton = new JButton("Delete Account");
+    
+        updateButton.addActionListener(e -> {
+            String newUsername = userField.getText().trim();
+            String newPassword = new String(passField.getPassword()).trim();
+    
+            if (newUsername.isEmpty() || newPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Fields cannot be empty!", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+    
+            if (updateUser(newUsername, newPassword)) {
+                JOptionPane.showMessageDialog(frame, "Account updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                frame.dispose();
+            } else {
+                JOptionPane.showMessageDialog(frame, "Update failed!", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    
+        deleteButton.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(frame, "Are you sure you want to delete your account?", "Confirm", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (deleteUser()) {
+                    JOptionPane.showMessageDialog(frame, "Account deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    frame.dispose();
+                    System.exit(0); // Exit application
+                } else {
+                    JOptionPane.showMessageDialog(frame, "Deletion failed!", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+    
+        panel.add(userLabel);
+        panel.add(userField);
+        panel.add(passLabel);
+        panel.add(passField);
+        panel.add(updateButton);
+        panel.add(deleteButton);
+    
+        frame.add(panel);
+        frame.setVisible(true);
+    }
 
-    private static boolean connectToDatabase() {
+    private static boolean updateUser(String newUsername, String newPassword) {
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-            System.out.println("Connected to MySQL successfully!");
-            return true;
+            String query = "UPDATE users SET username = ?, password = ? WHERE username = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, newUsername);
+            stmt.setString(2, newPassword);
+            stmt.setString(3, currentUser); // Use the currently logged-in user
+            int rowsUpdated = stmt.executeUpdate();
+    
+            if (rowsUpdated > 0) {
+                currentUser = newUsername; // Update session username
+                return true;
+            }
         } catch (SQLException e) {
-            System.out.println("Connection failed: " + e.getMessage());
-            return false;
+            System.out.println("Update failed: " + e.getMessage());
         }
+        return false;
+    }
+    
+    private static boolean deleteUser() {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "DELETE FROM users WHERE username = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, currentUser);
+            int rowsDeleted = stmt.executeUpdate();
+            return rowsDeleted > 0;
+        } catch (SQLException e) {
+            System.out.println("Deletion failed: " + e.getMessage());
+        }
+        return false;
+    }
+
+    private static void logout() {
+        currentUser = null; // Clear session
+        JOptionPane.showMessageDialog(null, "Logged out successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        SwingUtilities.invokeLater(entr::createLoginGUI); // Return to login
     }
 
     private static boolean registerUser(String username, String password) {
@@ -150,13 +240,16 @@ public class entr {
             stmt.setString(1, username);
             stmt.setString(2, password);
             ResultSet rs = stmt.executeQuery();
-
-            return rs.next();
+    
+            if (rs.next()) {
+                currentUser = username;  // Store logged-in user
+                return true;
+            }
         } catch (SQLException e) {
             System.out.println("Login failed: " + e.getMessage());
-            return false;
         }
-    }
+        return false;
+    }    
 
     private static void createEventGUI() {
         JFrame frame = new JFrame("Create Event");
@@ -173,6 +266,7 @@ public class entr {
         JTextField eventEndTimeField = new JTextField();
         JTextArea eventDescriptionArea = new JTextArea();
         JButton saveButton = new JButton("Save Event");
+        JButton backButton = new JButton("Back");
 
         saveButton.addActionListener(e -> {
             String name = eventNameField.getText().trim();
@@ -195,6 +289,10 @@ public class entr {
             }
         });
 
+        backButton.addActionListener(e -> {
+            frame.dispose(); // Close the Create Event window and return to the main dashboard
+        });
+        
         panel.add(new JLabel("Event Name:"));
         panel.add(eventNameField);
         panel.add(new JLabel("Date:"));
@@ -208,6 +306,7 @@ public class entr {
         panel.add(new JLabel("Description:"));
         panel.add(eventDescriptionArea);
         panel.add(saveButton);
+        panel.add(backButton);
 
         frame.add(panel);
         frame.setVisible(true);
