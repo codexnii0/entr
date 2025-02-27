@@ -6,8 +6,6 @@ USE entr_db;
     password VARCHAR(255) NOT NULL
 ); */
 
-/*select * from users; /*--to use the table*/
-
 /*CREATE TABLE events (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -20,6 +18,5 @@ USE entr_db;
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );*/
 
-/*select * from events; /*--to use the table*/
 
 

@@ -1,7 +1,5 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.sql.*;
 
 public class entr {
@@ -29,7 +27,6 @@ public class entr {
 
         JButton loginButton = new JButton("Login");
         JButton registerButton = new JButton("Register");
-        JLabel statusLabel = new JLabel(" ", SwingConstants.CENTER);
 
         loginButton.addActionListener(e -> {
             String username = userField.getText().trim();
@@ -108,7 +105,6 @@ public class entr {
     
         panel.add(label);
         panel.add(createEventButton); // Adding the new button to the panel
-        panel.add(accountSettingsButton);
         panel.add(accountSettingsButton);
         panel.add(logoutButton);
     
@@ -314,19 +310,34 @@ public class entr {
 
     private static boolean saveEvent(String name, String date, String location, String startTime, String endTime, String description) {
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-            String query = "INSERT INTO events (name, date, location, start_time, end_time, description) VALUES (?, ?, ?, ?, ?, ?)";
-            PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, name);
-            stmt.setString(2, date);
-            stmt.setString(3, location);
-            stmt.setString(4, startTime);
-            stmt.setString(5, endTime);
-            stmt.setString(6, description);
-            stmt.executeUpdate();
-            return true;
+            // Fetch the current user's ID
+            String userQuery = "SELECT id FROM users WHERE username = ?";
+            PreparedStatement userStmt = conn.prepareStatement(userQuery);
+            userStmt.setString(1, currentUser);
+            ResultSet rs = userStmt.executeQuery();
+            
+            if (rs.next()) {
+                int userId = rs.getInt("id"); // Get user ID
+                
+                // Insert event with user_id
+                String query = "INSERT INTO events (user_id, event_name, event_date, location, time_start, time_end, description) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                PreparedStatement stmt = conn.prepareStatement(query);
+                stmt.setInt(1, userId);
+                stmt.setString(2, name);
+                stmt.setString(3, date);
+                stmt.setString(4, location);
+                stmt.setString(5, startTime);
+                stmt.setString(6, endTime);
+                stmt.setString(7, description);
+                stmt.executeUpdate();
+                return true;
+            } else {
+                System.out.println("User not found!");
+                return false;
+            }
         } catch (SQLException e) {
             System.out.println("Event save failed: " + e.getMessage());
             return false;
         }
-    }
+    }    
 }
