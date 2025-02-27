@@ -16,11 +16,11 @@ public class entr {
     private static void createLoginGUI() {
         JFrame frame = new JFrame("ENTR - Login");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1000, 750);
+        frame.setSize(400, 300);
         frame.setLocationRelativeTo(null); // Center the window
 
         JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(4, 1));
+        panel.setLayout(new GridLayout(5, 1, 10, 10));
 
         JLabel userLabel = new JLabel("Username:");
         JTextField userField = new JTextField();
@@ -29,15 +29,19 @@ public class entr {
 
         JButton loginButton = new JButton("Login");
         JButton registerButton = new JButton("Register");
-
         JLabel statusLabel = new JLabel(" ", SwingConstants.CENTER);
 
         loginButton.addActionListener(e -> {
-            String username = userField.getText();
-            String password = new String(passField.getPassword());
+            String username = userField.getText().trim();
+            String password = new String(passField.getPassword()).trim();
+
+            if (username.isEmpty() || password.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Username and password cannot be empty!", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
             if (loginUser(username, password)) {
-                statusLabel.setText("Login successful!");
+                JOptionPane.showMessageDialog(frame, "Login successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 frame.dispose(); // Close login window
                 createMainGUI(); // Open main event tracker GUI
             } else {
@@ -46,13 +50,18 @@ public class entr {
         });
 
         registerButton.addActionListener(e -> {
-            String username = userField.getText();
-            String password = new String(passField.getPassword());
+            String username = userField.getText().trim();
+            String password = new String(passField.getPassword()).trim();
+
+            if (username.isEmpty() || password.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Username and password cannot be empty!", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
             if (registerUser(username, password)) {
-                statusLabel.setText("Registration successful!");
+                JOptionPane.showMessageDialog(frame, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                statusLabel.setText("User already exists.");
+                JOptionPane.showMessageDialog(frame, "User already exists.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -71,7 +80,7 @@ public class entr {
     private static void createMainGUI() {
         JFrame frame = new JFrame("ENTR - Event Tracker");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1000,750);
+        frame.setSize(400, 300);
         frame.setLocationRelativeTo(null); // Center the window
 
         JPanel panel = new JPanel();
@@ -109,7 +118,6 @@ public class entr {
 
     private static boolean registerUser(String username, String password) {
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-            // Check if user already exists
             String checkQuery = "SELECT * FROM users WHERE username = ?";
             PreparedStatement checkStmt = conn.prepareStatement(checkQuery);
             checkStmt.setString(1, username);
@@ -119,7 +127,6 @@ public class entr {
                 return false; // User already exists
             }
 
-            // Insert new user
             String insertQuery = "INSERT INTO users (username, password) VALUES (?, ?)";
             PreparedStatement insertStmt = conn.prepareStatement(insertQuery);
             insertStmt.setString(1, username);
@@ -140,7 +147,7 @@ public class entr {
             stmt.setString(2, password);
             ResultSet rs = stmt.executeQuery();
 
-            return rs.next(); // If there is a match, login is successful
+            return rs.next();
         } catch (SQLException e) {
             System.out.println("Login failed: " + e.getMessage());
             return false;
