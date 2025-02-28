@@ -86,35 +86,36 @@ public class entr {
     private static void createMainGUI() {
         JFrame frame = new JFrame("ENTR - Event Tracker");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(400, 300);
-        frame.setLocationRelativeTo(null); // Center the window
+        frame.setSize(400, 350); // Increased size to fit the new button
+        frame.setLocationRelativeTo(null);
     
         JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(4, 1)); // Increased rows to accommodate the new button
+        panel.setLayout(new GridLayout(5, 1)); // Adjusted rows
     
         JLabel label = new JLabel("Welcome to ENTR", SwingConstants.CENTER);
-        JButton createEventButton = new JButton("Create Event"); // New button for event creation
-        JButton viewMyEventsButton = new JButton("View My Events");
+        JButton createEventButton = new JButton("Create Event");
+        JButton viewEventsButton = new JButton("View My Events");
+        JButton joinEventButton = new JButton("Join Events"); // New button to join events
         JButton accountSettingsButton = new JButton("Account Settings");
         JButton logoutButton = new JButton("Logout");
     
-    
-        createEventButton.addActionListener(e -> createEventGUI()); // Calls the method to open the event creation window
-
-        viewMyEventsButton.addActionListener(e -> viewMyEventsGUI());
-
+        createEventButton.addActionListener(e -> createEventGUI());
+        viewEventsButton.addActionListener(e -> viewMyEventsGUI());
+        joinEventButton.addActionListener(e -> joinEventGUI()); // Calls method to join events
         accountSettingsButton.addActionListener(e -> openAccountSettingsGUI());
-        logoutButton.addActionListener(e -> logout()); 
+        logoutButton.addActionListener(e -> logout(frame)); // Pass the current frame
+
     
         panel.add(label);
-        panel.add(createEventButton); // Adding the new button to the panel
-        panel.add(viewMyEventsButton);
+        panel.add(createEventButton);
+        panel.add(viewEventsButton);
+        panel.add(joinEventButton); // Added new button
         panel.add(accountSettingsButton);
         panel.add(logoutButton);
     
         frame.add(panel);
         frame.setVisible(true);
-    } 
+    }    
     
     private static void openAccountSettingsGUI() {
         JFrame frame = new JFrame("Account Settings");
@@ -204,11 +205,15 @@ public class entr {
         return false;
     }
 
-    private static void logout() {
-        currentUser = null; // Clear session
-        JOptionPane.showMessageDialog(null, "Logged out successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-        SwingUtilities.invokeLater(entr::createLoginGUI); // Return to login
+    private static void logout(JFrame currentFrame) {
+        int confirm = JOptionPane.showConfirmDialog(currentFrame, "Are you sure you want to log out?", "Logout", JOptionPane.YES_NO_OPTION);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            currentFrame.dispose(); // Dispose of the current frame
+            createLoginGUI(); // Return to login GUI
+        }
     }
+    
 
     private static boolean registerUser(String username, String password) {
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
@@ -347,7 +352,7 @@ public class entr {
         
     private static void viewMyEventsGUI() {
         JFrame frame = new JFrame("My Events");
-        frame.setSize(500, 400);
+        frame.setSize(600, 400);
         frame.setLocationRelativeTo(null);
     
         JPanel panel = new JPanel();
@@ -356,28 +361,69 @@ public class entr {
         DefaultListModel<String> listModel = new DefaultListModel<>();
         JList<String> eventList = new JList<>(listModel);
         JScrollPane scrollPane = new JScrollPane(eventList);
-        
+    
         JButton updateButton = new JButton("Update Event");
+        JButton deleteButton = new JButton("Delete Event");
+        JButton viewAttendeesButton = new JButton("View Attendees"); // New Button
         JButton backButton = new JButton("Back");
     
         // Fetch user events
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-            String query = "SELECT id, event_name, event_date FROM events WHERE user_id = (SELECT id FROM users WHERE username = ?)";
+            String query = "SELECT id, event_name, event_date, location, time_start, time_end, description FROM events WHERE user_id = (SELECT id FROM users WHERE username = ?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, currentUser);
             ResultSet rs = stmt.executeQuery();
     
             while (rs.next()) {
-                listModel.addElement(rs.getInt("id") + ": " + rs.getString("event_name") + " - " + rs.getString("event_date"));
+                String eventDetails = String.format(
+                    "%d: %s | Date: %s | Location: %s | Time: %s - %s | %s",
+                    rs.getInt("id"),
+                    rs.getString("event_name"),
+                    rs.getString("event_date"),
+                    rs.getString("location"),
+                    rs.getString("time_start"),
+                    rs.getString("time_end"),
+                    rs.getString("description")
+                );
+                listModel.addElement(eventDetails);
             }
     
             if (listModel.isEmpty()) {
                 listModel.addElement("No event created.");
-                updateButton.setEnabled(false); // Disable update if no events
+                updateButton.setEnabled(false);
+                deleteButton.setEnabled(false);
+                viewAttendeesButton.setEnabled(false);
             }
         } catch (SQLException e) {
             System.out.println("Error fetching events: " + e.getMessage());
         }
+    
+        // DELETE EVENT FUNCTIONALITY
+        deleteButton.addActionListener(e -> {
+            String selectedEvent = eventList.getSelectedValue();
+            if (selectedEvent != null && !selectedEvent.equals("No event created.")) {
+                int eventId = Integer.parseInt(selectedEvent.split(":")[0]);
+    
+                int confirm = JOptionPane.showConfirmDialog(frame, 
+                    "Are you sure you want to delete this event?", "Confirm Delete", 
+                    JOptionPane.YES_NO_OPTION);
+                
+                if (confirm == JOptionPane.YES_OPTION) {
+                    deleteEvent(eventId);
+                    frame.dispose();
+                    viewMyEventsGUI(); // Refresh event list after deletion
+                }
+            }
+        });
+    
+        // VIEW ATTENDEES FUNCTIONALITY
+        viewAttendeesButton.addActionListener(e -> {
+            String selectedEvent = eventList.getSelectedValue();
+            if (selectedEvent != null && !selectedEvent.equals("No event created.")) {
+                int eventId = Integer.parseInt(selectedEvent.split(":")[0]);
+                viewEventAttendees(eventId);
+            }
+        });
     
         updateButton.addActionListener(e -> {
             String selectedEvent = eventList.getSelectedValue();
@@ -392,6 +438,8 @@ public class entr {
     
         JPanel buttonPanel = new JPanel();
         buttonPanel.add(updateButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(viewAttendeesButton);
         buttonPanel.add(backButton);
     
         panel.add(scrollPane, BorderLayout.CENTER);
@@ -399,7 +447,7 @@ public class entr {
     
         frame.add(panel);
         frame.setVisible(true);
-    }
+    }        
     
     private static void updateEventGUI(int eventId) {
         JFrame frame = new JFrame("Update Event");
@@ -497,4 +545,164 @@ public class entr {
             return false;
         }
     }
+
+    private static void viewEventAttendees(int eventId) {
+        JFrame frame = new JFrame("Event Attendees");
+        frame.setSize(400, 300);
+        frame.setLocationRelativeTo(null);
+    
+        JTextArea attendeesList = new JTextArea();
+        attendeesList.setEditable(false);
+    
+        JButton closeButton = new JButton("Close");
+        closeButton.addActionListener(e -> frame.dispose());
+    
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(new JScrollPane(attendeesList), BorderLayout.CENTER);
+        panel.add(closeButton, BorderLayout.SOUTH);
+    
+        frame.add(panel);
+        frame.setVisible(true);
+    
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "SELECT users.username FROM attendees JOIN users ON attendees.user_id = users.id WHERE attendees.event_id = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setInt(1, eventId);
+            ResultSet rs = stmt.executeQuery();
+    
+            StringBuilder attendees = new StringBuilder();
+            while (rs.next()) {
+                attendees.append(rs.getString("username")).append("\n");
+            }
+    
+            if (attendees.length() == 0) {
+                attendeesList.setText("No attendees yet.");
+            } else {
+                attendeesList.setText("Attendees:\n" + attendees.toString());
+            }
+        } catch (SQLException e) {
+            attendeesList.setText("Failed to load attendees.");
+            System.out.println("Error: " + e.getMessage());
+        }
+    }    
+
+    private static void deleteEvent(int eventId) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "DELETE FROM events WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setInt(1, eventId);
+            int rowsAffected = stmt.executeUpdate();
+    
+            if (rowsAffected > 0) {
+                JOptionPane.showMessageDialog(null, "Event deleted successfully!");
+            } else {
+                JOptionPane.showMessageDialog(null, "Failed to delete event.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error deleting event: " + e.getMessage());
+        }
+    }
+    
+    private static void joinEventGUI() {
+        JFrame frame = new JFrame("Join an Event");
+        frame.setSize(600, 400);
+        frame.setLocationRelativeTo(null);
+    
+        JPanel panel = new JPanel();
+        panel.setLayout(new BorderLayout());
+    
+        DefaultListModel<String> listModel = new DefaultListModel<>();
+        JList<String> eventList = new JList<>(listModel);
+        JScrollPane scrollPane = new JScrollPane(eventList);
+    
+        JButton joinButton = new JButton("Join Event");
+        JButton backButton = new JButton("Back");
+    
+        // Fetch events created by other users
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "SELECT id, event_name, event_date, location, time_start, time_end, description FROM events WHERE user_id != (SELECT id FROM users WHERE username = ?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, currentUser);
+            ResultSet rs = stmt.executeQuery();
+    
+            while (rs.next()) {
+                String eventDetails = String.format(
+                    "%d: %s | Date: %s | Location: %s | Time: %s - %s | %s",
+                    rs.getInt("id"),
+                    rs.getString("event_name"),
+                    rs.getString("event_date"),
+                    rs.getString("location"),
+                    rs.getString("time_start"),
+                    rs.getString("time_end"),
+                    rs.getString("description")
+                );
+                listModel.addElement(eventDetails);
+            }
+    
+            if (listModel.isEmpty()) {
+                listModel.addElement("No available events.");
+                joinButton.setEnabled(false);
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching events: " + e.getMessage());
+        }
+    
+        // JOIN EVENT FUNCTIONALITY
+        joinButton.addActionListener(e -> {
+            String selectedEvent = eventList.getSelectedValue();
+            if (selectedEvent != null && !selectedEvent.equals("No available events.")) {
+                int eventId = Integer.parseInt(selectedEvent.split(":")[0]);
+    
+                if (isAlreadyJoined(eventId)) {
+                    JOptionPane.showMessageDialog(frame, "You have already joined this event.");
+                } else {
+                    joinEvent(eventId);
+                    JOptionPane.showMessageDialog(frame, "You have successfully joined the event!");
+                }
+            }
+        });
+    
+        backButton.addActionListener(e -> {
+            frame.dispose();
+            createMainGUI();
+        });
+    
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(joinButton);
+        buttonPanel.add(backButton);
+    
+        panel.add(scrollPane, BorderLayout.CENTER);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+    
+        frame.add(panel);
+        frame.setVisible(true);
+    }
+    
+    private static void joinEvent(int eventId) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "INSERT INTO joined_events (user_id, event_id) VALUES ((SELECT id FROM users WHERE username = ?), ?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, currentUser);
+            stmt.setInt(2, eventId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error joining event: " + e.getMessage());
+        }
+    }
+
+    private static boolean isAlreadyJoined(int eventId) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "SELECT * FROM joined_events WHERE user_id = (SELECT id FROM users WHERE username = ?) AND event_id = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, currentUser);
+            stmt.setInt(2, eventId);
+            ResultSet rs = stmt.executeQuery();
+    
+            return rs.next();
+        } catch (SQLException e) {
+            System.out.println("Error checking joined event: " + e.getMessage());
+        }
+        return false;
+    }
+    
 }
