@@ -94,17 +94,21 @@ public class entr {
     
         JLabel label = new JLabel("Welcome to ENTR", SwingConstants.CENTER);
         JButton createEventButton = new JButton("Create Event"); // New button for event creation
+        JButton viewMyEventsButton = new JButton("View My Events");
         JButton accountSettingsButton = new JButton("Account Settings");
         JButton logoutButton = new JButton("Logout");
     
     
         createEventButton.addActionListener(e -> createEventGUI()); // Calls the method to open the event creation window
 
+        viewMyEventsButton.addActionListener(e -> viewMyEventsGUI());
+
         accountSettingsButton.addActionListener(e -> openAccountSettingsGUI());
         logoutButton.addActionListener(e -> logout()); 
     
         panel.add(label);
         panel.add(createEventButton); // Adding the new button to the panel
+        panel.add(viewMyEventsButton);
         panel.add(accountSettingsButton);
         panel.add(logoutButton);
     
@@ -339,5 +343,158 @@ public class entr {
             System.out.println("Event save failed: " + e.getMessage());
             return false;
         }
-    }    
+    }
+        
+    private static void viewMyEventsGUI() {
+        JFrame frame = new JFrame("My Events");
+        frame.setSize(500, 400);
+        frame.setLocationRelativeTo(null);
+    
+        JPanel panel = new JPanel();
+        panel.setLayout(new BorderLayout());
+    
+        DefaultListModel<String> listModel = new DefaultListModel<>();
+        JList<String> eventList = new JList<>(listModel);
+        JScrollPane scrollPane = new JScrollPane(eventList);
+        
+        JButton updateButton = new JButton("Update Event");
+        JButton backButton = new JButton("Back");
+    
+        // Fetch user events
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "SELECT id, event_name, event_date FROM events WHERE user_id = (SELECT id FROM users WHERE username = ?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, currentUser);
+            ResultSet rs = stmt.executeQuery();
+    
+            while (rs.next()) {
+                listModel.addElement(rs.getInt("id") + ": " + rs.getString("event_name") + " - " + rs.getString("event_date"));
+            }
+    
+            if (listModel.isEmpty()) {
+                listModel.addElement("No event created.");
+                updateButton.setEnabled(false); // Disable update if no events
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching events: " + e.getMessage());
+        }
+    
+        updateButton.addActionListener(e -> {
+            String selectedEvent = eventList.getSelectedValue();
+            if (selectedEvent != null && !selectedEvent.equals("No event created.")) {
+                int eventId = Integer.parseInt(selectedEvent.split(":")[0]);
+                updateEventGUI(eventId);
+                frame.dispose();
+            }
+        });
+    
+        backButton.addActionListener(e -> frame.dispose());
+    
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(updateButton);
+        buttonPanel.add(backButton);
+    
+        panel.add(scrollPane, BorderLayout.CENTER);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+    
+        frame.add(panel);
+        frame.setVisible(true);
+    }
+    
+    private static void updateEventGUI(int eventId) {
+        JFrame frame = new JFrame("Update Event");
+        frame.setSize(400, 400);
+        frame.setLocationRelativeTo(null);
+    
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(7, 1));
+    
+        JTextField eventNameField = new JTextField();
+        JTextField eventDateField = new JTextField();
+        JTextField eventLocationField = new JTextField();
+        JTextField eventStartTimeField = new JTextField();
+        JTextField eventEndTimeField = new JTextField();
+        JTextArea eventDescriptionArea = new JTextArea();
+        JButton updateButton = new JButton("Update Event");
+        JButton backButton = new JButton("Back");
+    
+        // Load existing event details
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "SELECT event_name, event_date, location, time_start, time_end, description FROM events WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setInt(1, eventId);
+            ResultSet rs = stmt.executeQuery();
+    
+            if (rs.next()) {
+                eventNameField.setText(rs.getString("event_name"));
+                eventDateField.setText(rs.getString("event_date"));
+                eventLocationField.setText(rs.getString("location"));
+                eventStartTimeField.setText(rs.getString("time_start"));
+                eventEndTimeField.setText(rs.getString("time_end"));
+                eventDescriptionArea.setText(rs.getString("description"));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error loading event: " + e.getMessage());
+        }
+    
+        updateButton.addActionListener(e -> {
+            String name = eventNameField.getText().trim();
+            String date = eventDateField.getText().trim();
+            String location = eventLocationField.getText().trim();
+            String startTime = eventStartTimeField.getText().trim();
+            String endTime = eventEndTimeField.getText().trim();
+            String description = eventDescriptionArea.getText().trim();
+    
+            if (name.isEmpty() || date.isEmpty() || location.isEmpty() || startTime.isEmpty() || endTime.isEmpty() || description.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "All fields are required!", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+    
+            if (updateEvent(eventId, name, date, location, startTime, endTime, description)) {
+                JOptionPane.showMessageDialog(frame, "Event updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                frame.dispose();
+            } else {
+                JOptionPane.showMessageDialog(frame, "Failed to update event.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    
+        backButton.addActionListener(e -> frame.dispose());
+    
+        panel.add(new JLabel("Event Name:"));
+        panel.add(eventNameField);
+        panel.add(new JLabel("Date:"));
+        panel.add(eventDateField);
+        panel.add(new JLabel("Location:"));
+        panel.add(eventLocationField);
+        panel.add(new JLabel("Time Start:"));
+        panel.add(eventStartTimeField);
+        panel.add(new JLabel("Time End:"));
+        panel.add(eventEndTimeField);
+        panel.add(new JLabel("Description:"));
+        panel.add(eventDescriptionArea);
+        panel.add(updateButton);
+        panel.add(backButton);
+    
+        frame.add(panel);
+        frame.setVisible(true);
+    }
+    
+    private static boolean updateEvent(int eventId, String name, String date, String location, String startTime, String endTime, String description) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "UPDATE events SET event_name = ?, event_date = ?, location = ?, time_start = ?, time_end = ?, description = ? WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, name);
+            stmt.setString(2, date);
+            stmt.setString(3, location);
+            stmt.setString(4, startTime);
+            stmt.setString(5, endTime);
+            stmt.setString(6, description);
+            stmt.setInt(7, eventId);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("Event update failed: " + e.getMessage());
+            return false;
+        }
+    }
 }
