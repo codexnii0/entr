@@ -18,5 +18,16 @@ USE entr_db;
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );*/
 
+/*select * from users; /*users table*/
+select * from events; /*events table*/
+
+/*CREATE TABLE event_attendees (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    event_id INT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);*/
+
 
 
