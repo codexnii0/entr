@@ -60,7 +60,6 @@ public class entr {
                 currentUser = username; // Store logged-in user
                 JOptionPane.showMessageDialog(frame, "Login successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 frame.dispose();
-                createMainGUI();
             }            
 
             if (registerUser(username, password)) {
@@ -666,7 +665,6 @@ public class entr {
     
         backButton.addActionListener(e -> {
             frame.dispose();
-            createMainGUI();
         });
     
         JPanel buttonPanel = new JPanel();
@@ -779,7 +777,6 @@ public class entr {
         // Back button to return to the dashboard
         backButton.addActionListener(e -> {
             frame.dispose();
-            createMainGUI();
         });
     
         JPanel buttonPanel = new JPanel();
